@@ -26,7 +26,11 @@ interface GMExtended {
 
 const publicClient = createPublicClient({
   chain: base,
-  transport: http(),
+  transport: http("https://base.llamarpc.com", {
+    batch: true,
+    retryCount: 3,
+    retryDelay: 1000,
+  }),
 });
 
 export const useDailyGM = () => {
@@ -223,24 +227,62 @@ export const useDailyGM = () => {
         functionName: "sendGM",
       });
 
-      setStatus("Validating...");
+      // Cek cooldown terlebih dahulu
+      setStatus("Checking cooldown...");
       try {
-        await publicClient.estimateGas({
+        const canSendCheck = (await publicClient.readContract({
+          address: CONTRACTS.GM as `0x${string}`,
+          abi: ABIS.GM,
+          functionName: "canSendGM",
+          args: [subAccount.address],
+        })) as [boolean, bigint];
+
+        if (!canSendCheck[0]) {
+          const hoursLeft = Number(canSendCheck[1]) / 3600;
+          throw new Error(
+            `Cooldown active. Wait ${hoursLeft.toFixed(1)} hours.`
+          );
+        }
+      } catch (checkError: any) {
+        if (checkError.message.includes("Cooldown")) {
+          throw checkError;
+        }
+        console.warn("Cooldown check failed, continuing...", checkError);
+      }
+
+      // Estimate gas dengan proper error handling
+      setStatus("Estimating gas...");
+      try {
+        const gasEstimate = await publicClient.estimateGas({
           account: subAccount.address,
           to: CONTRACTS.GM as `0x${string}`,
           data,
         });
+
+        console.log("Gas estimate:", gasEstimate.toString());
+
+        // Gas estimate
       } catch (estimateError: any) {
-        if (estimateError.message.includes("CooldownActive")) {
-          throw new Error("Cooldown active. Please wait 6 hours.");
+        console.error("Gas estimation error:", estimateError);
+
+        const errorMsg = estimateError.message || "";
+
+        if (
+          errorMsg.includes("CooldownActive") ||
+          errorMsg.includes("cooldown")
+        ) {
+          throw new Error("Cooldown still active. Please wait 6 hours.");
         }
-        if (estimateError.message.includes("insufficient")) {
-          throw new Error("Insufficient funds - click Fund Account to add ETH");
+        if (errorMsg.includes("insufficient")) {
+          throw new Error(
+            "Insufficient funds. Click 'Fund Account' to add ETH."
+          );
         }
-        throw estimateError;
+
+        console.warn("Continuing despite estimation warning...");
       }
 
-      setStatus("Sending GM...");
+      setStatus("Sending GM transaction...");
 
       const txHashResult = (await provider.request({
         method: "wallet_sendCalls",
@@ -253,6 +295,7 @@ export const useDailyGM = () => {
               {
                 to: CONTRACTS.GM,
                 data,
+                value: "0x0",
               },
             ],
           },
@@ -260,12 +303,18 @@ export const useDailyGM = () => {
       })) as string;
 
       setTxHash(txHashResult);
-      setStatus("Transaction submitted! Confirming...");
+      setStatus("Transaction submitted! Waiting for confirmation...");
 
+      // block confirmation on Base
       setTimeout(async () => {
-        await fetchGMData(subAccount.address);
-        setStatus("GM sent successfully! +10 points");
-      }, 5000);
+        try {
+          await fetchGMData(subAccount.address);
+          setStatus("GM sent successfully! +10 points");
+        } catch (refreshError) {
+          console.error("Error refreshing data:", refreshError);
+          setStatus("Transaction sent! Refresh page to see updated stats.");
+        }
+      }, 8000);
     } catch (error: any) {
       console.error("Error sending GM:", error);
 
@@ -276,25 +325,38 @@ export const useDailyGM = () => {
         errorMessageString.includes("insufficient funds") ||
         errorMessageString.includes("Insufficient")
       ) {
-        errorMessage = "Insufficient funds. Click 'Fund Account' to add ETH.";
-      } else if (errorMessageString.includes("Cooldown")) {
-        errorMessage = "Cooldown active. Wait 6 hours.";
-      } else if (errorMessageString.includes("user rejected")) {
-        errorMessage = "Transaction cancelled";
+        errorMessage =
+          "Insufficient funds. Click 'Fund Account' to add ETH (~$2-5 for gas).";
+      } else if (
+        errorMessageString.includes("Cooldown") ||
+        errorMessageString.includes("cooldown")
+      ) {
+        errorMessage = "Cooldown active. Wait 6 hours between GMs.";
+      } else if (
+        errorMessageString.includes("user rejected") ||
+        errorMessageString.includes("User rejected")
+      ) {
+        errorMessage = "Transaction cancelled by user";
       } else if (error?.message) {
         errorMessage = error.message;
       }
 
       setStatus(errorMessage);
 
+      // Refresh data untuk update UI
       if (subAccount) {
-        await fetchGMData(subAccount.address);
+        try {
+          await fetchGMData(subAccount.address);
+        } catch (refreshError) {
+          console.error("Error refreshing after failed tx:", refreshError);
+        }
       }
     } finally {
       setLoading(false);
     }
   }, [subAccount, canSend, timeRemaining, fetchGMData]);
 
+  // Auto-check connection saat component mount
   useEffect(() => {
     const checkConnection = async () => {
       const provider = getBaseAccountProvider();
