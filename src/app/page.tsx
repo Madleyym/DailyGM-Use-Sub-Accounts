@@ -9,8 +9,11 @@ import {
   Flame,
   CheckCircle,
   Sparkles,
+  Wallet,
+  LogOut,
 } from "lucide-react";
 import { useDailyGM } from "@/hooks/useDailyGM";
+import { QuestComplianceBanner } from "../components/QuestComplianceBanner"; 
 
 export default function DailyGMPage() {
   const {
@@ -22,6 +25,8 @@ export default function DailyGMPage() {
     status,
     txHash,
     connect,
+    disconnect,
+    fundAccount,
     sayGM,
   } = useDailyGM();
 
@@ -43,15 +48,25 @@ export default function DailyGMPage() {
             <Sparkles className="w-8 h-8 text-indigo-600" />
           </div>
           <p className="text-gray-700 text-lg mb-2 font-medium">
-            Build your streak, no pop-ups needed
+            Build your streak onchain
           </p>
           <p className="text-gray-600 text-base">
-            Say Good Morning onchain every day
+            Say Good Morning every day on Base
           </p>
           <div className="mt-6 inline-block bg-indigo-100 text-indigo-800 px-5 py-2.5 rounded-lg text-sm font-semibold">
-            Powered by Base Account SDK + Sub Accounts
+            Base Builder Quest 11 - Sub Accounts Demo
           </div>
         </div>
+
+        {/* Quest Banner with Controls */}
+        {connected && subAccount && (
+          <QuestComplianceBanner
+            subAccount={subAccount.address}
+            universalAddress={universalAddress}
+            onDisconnect={disconnect}
+            onFundAccount={fundAccount}
+          />
+        )}
 
         {/* Status Card */}
         <div className="bg-white rounded-xl shadow-md p-6 mb-6 border border-gray-200">
@@ -62,7 +77,7 @@ export default function DailyGMPage() {
                   connected ? "bg-green-500" : "bg-gray-400"
                 }`}
               />
-              Connection Status
+              Status
             </h2>
           </div>
 
@@ -70,43 +85,25 @@ export default function DailyGMPage() {
             <div className="flex items-center gap-2.5">
               <div
                 className={`w-2 h-2 rounded-full ${
-                  loading ? "bg-blue-500" : "bg-gray-300"
+                  loading ? "bg-blue-500 animate-pulse" : "bg-gray-300"
                 }`}
               />
               <p className="text-gray-700 text-sm font-medium">{status}</p>
             </div>
 
-            {universalAddress && (
-              <div className="space-y-3 pt-3 border-t border-gray-200">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 text-sm font-medium">
-                    Universal Account:
-                  </span>
-                  <span className="font-mono text-gray-900 text-sm bg-gray-100 px-3 py-1.5 rounded-md border border-gray-200">
-                    {formatAddress(universalAddress)}
-                  </span>
-                </div>
-                {subAccount && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600 text-sm font-medium">
-                      Sub Account:
-                    </span>
-                    <span className="font-mono text-gray-900 text-sm bg-purple-100 px-3 py-1.5 rounded-md border border-purple-200">
-                      {formatAddress(subAccount.address)}
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-
             {txHash && (
               <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
                 <p className="text-sm text-green-900 mb-1.5 font-semibold">
-                  Transaction Submitted Successfully
+                  Transaction Submitted
                 </p>
-                <p className="text-sm text-green-800 font-mono break-all">
-                  {formatAddress(txHash)}
-                </p>
+                <a
+                  href={`https://basescan.org/tx/${txHash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-blue-600 hover:underline font-mono break-all"
+                >
+                  View on BaseScan →
+                </a>
               </div>
             )}
           </div>
@@ -123,8 +120,8 @@ export default function DailyGMPage() {
                 Start Your GM Streak
               </h2>
               <p className="text-white text-base opacity-95 max-w-md mx-auto leading-relaxed">
-                Connect your Base Account once and enjoy a seamless experience
-                with no wallet pop-ups
+                Connect your Base Account once and enjoy a seamless onchain
+                experience
               </p>
             </div>
 
@@ -149,7 +146,7 @@ export default function DailyGMPage() {
             <div className="mt-6 flex items-center justify-center gap-6 text-white text-sm opacity-90 font-medium">
               <div className="flex items-center gap-1.5">
                 <CheckCircle className="w-4 h-4" />
-                <span>No Pop-ups</span>
+                <span>Sub Accounts</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <CheckCircle className="w-4 h-4" />
@@ -172,7 +169,7 @@ export default function DailyGMPage() {
                 )}
               </div>
               <h2 className="text-3xl font-bold text-white mb-3">
-                {gmRecord?.canGMToday ? "Good Morning" : "GM Sent Today"}
+                {gmRecord?.canGMToday ? "Good Morning!" : "GM Sent Today!"}
               </h2>
               <p className="text-white text-lg opacity-95 font-medium">
                 {gmRecord?.canGMToday
@@ -206,7 +203,7 @@ export default function DailyGMPage() {
 
             {gmRecord?.canGMToday && (
               <p className="mt-5 text-white text-sm opacity-90 font-medium">
-                No wallet confirmation needed - Auto Spend Permissions enabled
+                Powered by Sub Accounts - Seamless transactions
               </p>
             )}
           </div>
@@ -276,8 +273,8 @@ export default function DailyGMPage() {
                 Connect Once
               </h4>
               <p className="text-sm text-gray-600 leading-relaxed">
-                Connect your Base Account one time. No need to connect again on
-                return visits.
+                Connect your Base Account one time. A sub account is created
+                automatically.
               </p>
             </div>
 
@@ -286,10 +283,11 @@ export default function DailyGMPage() {
                 <span className="text-purple-700 text-2xl font-bold">2</span>
               </div>
               <h4 className="font-semibold text-gray-900 mb-2 text-base">
-                Auto Sub Account
+                Seamless Transactions
               </h4>
               <p className="text-sm text-gray-600 leading-relaxed">
-                A dedicated sub account is created automatically for this app.
+                All transactions use your sub account for smooth onchain
+                interactions.
               </p>
             </div>
 
@@ -298,11 +296,11 @@ export default function DailyGMPage() {
                 <span className="text-green-700 text-2xl font-bold">3</span>
               </div>
               <h4 className="font-semibold text-gray-900 mb-2 text-base">
-                No Pop-ups
+                Build Streaks
               </h4>
               <p className="text-sm text-gray-600 leading-relaxed">
-                Transactions execute seamlessly. Auto Spend Permissions handle
-                gas.
+                Say GM daily and watch your streak grow. All recorded onchain
+                permanently.
               </p>
             </div>
           </div>
@@ -311,21 +309,39 @@ export default function DailyGMPage() {
         {/* Footer */}
         <div className="text-center mt-8 pb-8 space-y-3">
           <p className="text-gray-600 text-sm font-semibold">
-            Daily GM Onchain App
+            Daily GM - Onchain Morning Ritual
           </p>
           <p className="text-gray-500 text-xs font-mono">
             Contract:{" "}
-            {formatAddress("0xf5b0E9cFD956929cFB2F168667CC392c29163535")} on
-            Base
+            <a
+              href="https://basescan.org/address/0x42A289CB8210005a2F5D0636f9aa90BF43D1593E"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:underline"
+            >
+              {formatAddress("0x42A289CB8210005a2F5D0636f9aa90BF43D1593E")}
+            </a>{" "}
+            on Base
           </p>
-          <a
-            href="https://account.base.app"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-block text-blue-600 text-sm font-medium"
-          >
-            Manage your accounts at account.base.app
-          </a>
+          <div className="flex items-center justify-center gap-4 text-sm">
+            <a
+              href="https://account.base.app"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 font-medium hover:underline"
+            >
+              Manage Accounts →
+            </a>
+            <span className="text-gray-400">•</span>
+            <a
+              href="https://docs.base.org"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 font-medium hover:underline"
+            >
+              Learn More →
+            </a>
+          </div>
         </div>
       </div>
     </div>
