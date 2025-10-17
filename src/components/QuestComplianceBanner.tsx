@@ -138,12 +138,12 @@ export const TransactionInfoBox: React.FC<{ show: boolean }> = ({ show }) => {
   return (
     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm mb-4">
       <p className="font-semibold text-blue-900 mb-2">
-        Why "Transaction preview unavailable"?
+        Why &ldquo;Transaction preview unavailable&rdquo;?
       </p>
       <p className="text-blue-700 mb-2">
-        This contract interaction doesn't transfer tokens, so there's no asset
-        change to preview. It's perfectly safe - you're just recording your
-        daily GM onchain!
+        This contract interaction doesn&apos;t transfer tokens, so there&apos;s
+        no asset change to preview. It&apos;s perfectly safe - you&apos;re just
+        recording your daily GM onchain!
       </p>
       <p className="text-blue-600 text-xs">
         This is normal for smart contract state changes. Your transaction is
