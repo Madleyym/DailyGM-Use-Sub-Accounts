@@ -20,12 +20,18 @@ interface SubAccount {
   address: `0x${string}`;
 }
 
-interface GMRecord {
-  lastGM: bigint;
+interface GMStats {
+  gmCount: bigint;
+  points: bigint;
+  soulboundTokens: bigint;
   currentStreak: bigint;
+}
+
+interface GMExtended {
   longestStreak: bigint;
-  totalGMs: bigint;
-  canGMToday: boolean;
+  puzzleSolved: boolean;
+  whitelisted: boolean;
+  rank: bigint;
 }
 
 interface QuestComplianceBannerProps {
@@ -115,14 +121,17 @@ export default function DailyGMPage() {
     connected,
     universalAddress,
     subAccount,
-    gmRecord,
+    gmStats,
+    gmExtended,
+    canSend,
+    timeRemaining,
     loading,
     status,
     txHash,
     connect,
     disconnect,
     fundAccount,
-    sayGM,
+    sendGM,
   } = useDailyGM();
 
   const [needsFunding] = React.useState(false);
@@ -130,6 +139,15 @@ export default function DailyGMPage() {
   const formatAddress = (addr: string) => {
     if (!addr) return "";
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  };
+
+  const formatTimeRemaining = (seconds: bigint) => {
+    const hours = Number(seconds) / 3600;
+    if (hours < 1) {
+      const minutes = Math.ceil(Number(seconds) / 60);
+      return `${minutes}m`;
+    }
+    return `${hours.toFixed(1)}h`;
   };
 
   return (
@@ -233,6 +251,10 @@ export default function DailyGMPage() {
               </div>
               <div className="flex items-center gap-1">
                 <CheckCircle className="w-3 h-3" />
+                <span>Auto Spend</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <CheckCircle className="w-3 h-3" />
                 <span>Secure</span>
               </div>
             </div>
@@ -240,24 +262,24 @@ export default function DailyGMPage() {
         ) : (
           <div className="bg-gradient-to-r from-orange-500 to-pink-500 rounded-xl p-6 text-center mb-4">
             <div className="w-20 h-20 bg-white bg-opacity-20 rounded-full flex items-center justify-center mx-auto mb-4">
-              {gmRecord?.canGMToday ? (
+              {canSend ? (
                 <Calendar className="w-10 h-10 text-white" />
               ) : (
                 <CheckCircle className="w-10 h-10 text-white" />
               )}
             </div>
             <h2 className="text-2xl font-bold text-white mb-2">
-              {gmRecord?.canGMToday ? "Good Morning!" : "GM Sent Today!"}
+              {canSend ? "Good Morning!" : "GM Sent!"}
             </h2>
             <p className="text-white text-sm opacity-90 mb-4">
-              {gmRecord?.canGMToday
+              {canSend
                 ? "Ready to continue your streak?"
-                : "Come back tomorrow"}
+                : `Next GM in ${formatTimeRemaining(timeRemaining)}`}
             </p>
 
             <button
-              onClick={sayGM}
-              disabled={loading || !gmRecord?.canGMToday || needsFunding}
+              onClick={sendGM}
+              disabled={loading || !canSend || needsFunding}
               className="w-full bg-white text-orange-600 px-8 py-4 rounded-lg font-bold text-lg hover:bg-orange-50 active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 inline-flex items-center justify-center gap-2"
             >
               {loading ? (
@@ -270,7 +292,7 @@ export default function DailyGMPage() {
                   <Wallet className="w-5 h-5" />
                   Fund Account First
                 </>
-              ) : gmRecord?.canGMToday ? (
+              ) : canSend ? (
                 <>
                   <Zap className="w-5 h-5" />
                   Say GM
@@ -278,20 +300,35 @@ export default function DailyGMPage() {
               ) : (
                 <>
                   <CheckCircle className="w-5 h-5" />
-                  GM Sent
+                  Cooldown Active
                 </>
               )}
             </button>
+
+            {gmStats && gmExtended && (
+              <div className="mt-4 flex items-center justify-center gap-4 text-white text-xs">
+                <div className="flex items-center gap-1">
+                  <span className="opacity-70">Points:</span>
+                  <span className="font-bold">{gmStats.points.toString()}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="opacity-70">Rank:</span>
+                  <span className="font-bold">
+                    {gmExtended.rank > 0 ? `#${gmExtended.rank}` : "N/A"}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
         {/* Stats Grid */}
-        {gmRecord && (
+        {gmStats && gmExtended && (
           <div className="grid grid-cols-3 gap-3 mb-4">
             <div className="bg-slate-800 bg-opacity-50 backdrop-blur-sm rounded-xl border border-slate-700 p-3 text-center">
               <Flame className="w-5 h-5 text-orange-400 mx-auto mb-2" />
               <p className="text-2xl font-bold text-white mb-0.5">
-                {gmRecord.currentStreak.toString()}
+                {gmStats.currentStreak.toString()}
               </p>
               <p className="text-xs text-gray-400">Streak</p>
             </div>
@@ -299,7 +336,7 @@ export default function DailyGMPage() {
             <div className="bg-slate-800 bg-opacity-50 backdrop-blur-sm rounded-xl border border-slate-700 p-3 text-center">
               <Trophy className="w-5 h-5 text-yellow-400 mx-auto mb-2" />
               <p className="text-2xl font-bold text-white mb-0.5">
-                {gmRecord.longestStreak.toString()}
+                {gmExtended.longestStreak.toString()}
               </p>
               <p className="text-xs text-gray-400">Best</p>
             </div>
@@ -307,7 +344,7 @@ export default function DailyGMPage() {
             <div className="bg-slate-800 bg-opacity-50 backdrop-blur-sm rounded-xl border border-slate-700 p-3 text-center">
               <TrendingUp className="w-5 h-5 text-blue-400 mx-auto mb-2" />
               <p className="text-2xl font-bold text-white mb-0.5">
-                {gmRecord.totalGMs.toString()}
+                {gmStats.gmCount.toString()}
               </p>
               <p className="text-xs text-gray-400">Total</p>
             </div>
@@ -319,12 +356,12 @@ export default function DailyGMPage() {
           <p className="text-gray-400 text-xs">
             Contract:{" "}
             <a
-              href="https://basescan.org/address/0x42A289CB8210005a2F5D0636f9aa90BF43D1593E"
+              href={`https://basescan.org/address/0xA3a6B841B9FE7F8524ddeCD1038301dCF176C122`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-400 hover:underline font-mono"
             >
-              {formatAddress("0x42A289CB8210005a2F5D0636f9aa90BF43D1593E")}
+              {formatAddress("0xA3a6B841B9FE7F8524ddeCD1038301dCF176C122")}
             </a>
           </p>
           <div className="flex items-center justify-center gap-3 text-xs">
