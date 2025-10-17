@@ -13,7 +13,7 @@ export const getBaseAccountSDK = () => {
 
   if (!sdkInstance) {
     sdkInstance = createBaseAccountSDK({
-      appName: "Daily GM - Base Builder Quest 11",
+      appName: "Daily GM - Base Quest",
       appLogoUrl: "/logo.svg",
       appChainIds: [base.id],
       subAccounts: {
