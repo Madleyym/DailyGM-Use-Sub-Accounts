@@ -5,22 +5,33 @@ import { base } from "viem/chains";
 
 let sdkInstance: ReturnType<typeof createBaseAccountSDK> | null = null;
 
-const LOGO_SVG = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cdefs%3E%3ClinearGradient id='sunGradient' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%23FFD93D;stop-opacity:1' /%3E%3Cstop offset='100%25' style='stop-color:%23FF6B35;stop-opacity:1' /%3E%3C/linearGradient%3E%3ClinearGradient id='skyGradient' x1='0%25' y1='0%25' x2='0%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%23667EEA;stop-opacity:1' /%3E%3Cstop offset='100%25' style='stop-color:%23764BA2;stop-opacity:1' /%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='100' cy='100' r='95' fill='url(%23skyGradient)'/%3E%3Ccircle cx='100' cy='65' r='25' fill='url(%23sunGradient)'/%3E%3Ctext x='100' y='150' font-family='Arial, sans-serif' font-size='48' font-weight='bold' fill='white' text-anchor='middle'%3EGM%3C/text%3E%3C/svg%3E`;
+// Logo yang lebih sederhana dan reliable
+const LOGO_URL =
+  "https://raw.githubusercontent.com/base-org/brand-kit/main/logo/symbol/Base_Symbol_Blue.svg";
 
 export const getBaseAccountSDK = () => {
   if (typeof window === "undefined") return null;
 
   if (!sdkInstance) {
-    sdkInstance = createBaseAccountSDK({
-      appName: "Daily GM - Base Quest",
-      appLogoUrl: LOGO_SVG,
-      appChainIds: [base.id],
-      subAccounts: {
-        creation: "on-connect",
-        defaultAccount: "sub",
-      },
-      // Paymaster delegation for gasless txns
-    });
+    try {
+      sdkInstance = createBaseAccountSDK({
+        appName: "Daily GM - Base Builder Quest 11",
+        appLogoUrl: LOGO_URL,
+        appChainIds: [base.id],
+        subAccounts: {
+          creation: "on-connect", // Auto-create sub account on connect
+          defaultAccount: "sub", // Use sub account as default
+        },
+        // {
+        //   url: "YOUR_PAYMASTER_URL",
+        // },
+      });
+
+      console.log("Base Account SDK initialized successfully");
+    } catch (error) {
+      console.error("Failed to initialize Base Account SDK:", error);
+      return null;
+    }
   }
 
   return sdkInstance;
@@ -28,5 +39,15 @@ export const getBaseAccountSDK = () => {
 
 export const getBaseAccountProvider = () => {
   const sdk = getBaseAccountSDK();
-  return sdk?.getProvider() ?? null;
+  if (!sdk) {
+    console.error("SDK not initialized");
+    return null;
+  }
+  return sdk.getProvider();
+};
+
+// Helper function untuk check apakah provider ready
+export const isProviderReady = (): boolean => {
+  const provider = getBaseAccountProvider();
+  return provider !== null;
 };
