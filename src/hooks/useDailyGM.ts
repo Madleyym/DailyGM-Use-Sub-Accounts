@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
-import { CONTRACTS } from "@/lib/contracts.config";
-import { createPublicClient, http, parseAbi, encodeFunctionData } from "viem";
+import { CONTRACTS, ABIS } from "@/lib/contracts.config";
+import { createPublicClient, http, encodeFunctionData } from "viem";
 import { base } from "viem/chains";
 import { getBaseAccountProvider } from "@/lib/base-account.config";
 
@@ -10,12 +10,18 @@ interface SubAccount {
   factoryData?: `0x${string}`;
 }
 
-interface GMRecord {
-  lastGM: bigint;
+interface GMStats {
+  gmCount: bigint;
+  points: bigint;
+  soulboundTokens: bigint;
   currentStreak: bigint;
+}
+
+interface GMExtended {
   longestStreak: bigint;
-  totalGMs: bigint;
-  canGMToday: boolean;
+  puzzleSolved: boolean;
+  whitelisted: boolean;
+  rank: bigint;
 }
 
 const publicClient = createPublicClient({
@@ -27,47 +33,78 @@ export const useDailyGM = () => {
   const [connected, setConnected] = useState(false);
   const [universalAddress, setUniversalAddress] = useState<string>("");
   const [subAccount, setSubAccount] = useState<SubAccount | null>(null);
-  const [gmRecord, setGmRecord] = useState<GMRecord | null>(null);
+  const [gmStats, setGmStats] = useState<GMStats | null>(null);
+  const [gmExtended, setGmExtended] = useState<GMExtended | null>(null);
+  const [canSend, setCanSend] = useState<boolean>(true);
+  const [timeRemaining, setTimeRemaining] = useState<bigint>(BigInt(0));
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("Ready to connect");
   const [txHash, setTxHash] = useState("");
 
-  const fetchGMRecord = useCallback(async (address: string) => {
+  const fetchGMData = useCallback(async (address: string) => {
     try {
       setStatus("Loading stats...");
 
-      const data = await publicClient.readContract({
+      // Get basic stats
+      const stats = (await publicClient.readContract({
         address: CONTRACTS.GM as `0x${string}`,
-        abi: parseAbi([
-          "function getGMRecord(address user) view returns (uint256 lastGM, uint256 currentStreak, uint256 longestStreak, uint256 totalGMs, bool canGMToday)",
-        ]),
-        functionName: "getGMRecord",
+        abi: ABIS.GM,
+        functionName: "getUserStats",
         args: [address as `0x${string}`],
+      })) as [bigint, bigint, bigint, bigint];
+
+      setGmStats({
+        gmCount: stats[0],
+        points: stats[1],
+        soulboundTokens: stats[2],
+        currentStreak: stats[3],
       });
 
-      const [lastGM, currentStreak, longestStreak, totalGMs, canGMToday] =
-        data as [bigint, bigint, bigint, bigint, boolean];
+      // Get extended info
+      const extended = (await publicClient.readContract({
+        address: CONTRACTS.GM as `0x${string}`,
+        abi: ABIS.GM,
+        functionName: "getUserExtended",
+        args: [address as `0x${string}`],
+      })) as [bigint, boolean, boolean, bigint];
 
-      setGmRecord({
-        lastGM,
-        currentStreak,
-        longestStreak,
-        totalGMs,
-        canGMToday,
+      setGmExtended({
+        longestStreak: extended[0],
+        puzzleSolved: extended[1],
+        whitelisted: extended[2],
+        rank: extended[3],
       });
+
+      // Check if can send GM
+      const canSendData = (await publicClient.readContract({
+        address: CONTRACTS.GM as `0x${string}`,
+        abi: ABIS.GM,
+        functionName: "canSendGM",
+        args: [address as `0x${string}`],
+      })) as [boolean, bigint];
+
+      setCanSend(canSendData[0]);
+      setTimeRemaining(canSendData[1]);
 
       setStatus("Connected - Ready to GM!");
     } catch (error) {
-      console.error("Error fetching GM record:", error);
+      console.error("Error fetching GM data:", error);
       setStatus("Connected");
 
-      setGmRecord({
-        lastGM: BigInt(0),
+      // Set default values
+      setGmStats({
+        gmCount: BigInt(0),
+        points: BigInt(0),
+        soulboundTokens: BigInt(0),
         currentStreak: BigInt(0),
-        longestStreak: BigInt(0),
-        totalGMs: BigInt(0),
-        canGMToday: true,
       });
+      setGmExtended({
+        longestStreak: BigInt(0),
+        puzzleSolved: false,
+        whitelisted: false,
+        rank: BigInt(0),
+      });
+      setCanSend(true);
     }
   }, []);
 
@@ -99,13 +136,11 @@ export const useDailyGM = () => {
       let subAcc: SubAccount;
 
       if (accounts.length > 1 && accounts[1]) {
-        // Sub account already exists
         subAcc = {
           address: accounts[1] as `0x${string}`,
         };
         setSubAccount(subAcc);
       } else {
-        // Create new sub account
         setStatus("Creating sub account...");
         try {
           const newSubAccount = (await provider.request({
@@ -123,7 +158,6 @@ export const useDailyGM = () => {
           setSubAccount(newSubAccount);
         } catch (subError: any) {
           console.error("Sub account creation failed:", subError);
-          // Fallback to main account
           subAcc = {
             address: universal as `0x${string}`,
           };
@@ -131,7 +165,7 @@ export const useDailyGM = () => {
         }
       }
 
-      await fetchGMRecord(subAcc.address);
+      await fetchGMData(subAcc.address);
     } catch (error: any) {
       console.error("Connection error:", error);
       setStatus(error?.message || "Connection failed");
@@ -139,14 +173,15 @@ export const useDailyGM = () => {
     } finally {
       setLoading(false);
     }
-  }, [fetchGMRecord]);
+  }, [fetchGMData]);
 
   const disconnect = useCallback(async () => {
     try {
       setConnected(false);
       setUniversalAddress("");
       setSubAccount(null);
-      setGmRecord(null);
+      setGmStats(null);
+      setGmExtended(null);
       setStatus("Disconnected");
       setTxHash("");
     } catch (error) {
@@ -164,7 +199,7 @@ export const useDailyGM = () => {
     window.open(fundUrl, "_blank");
   }, [subAccount]);
 
-  const sayGM = useCallback(async () => {
+  const sendGM = useCallback(async () => {
     const provider = getBaseAccountProvider();
 
     if (!provider || !subAccount) {
@@ -172,8 +207,9 @@ export const useDailyGM = () => {
       return;
     }
 
-    if (!gmRecord?.canGMToday) {
-      setStatus("Already sent GM today. Come back tomorrow.");
+    if (!canSend) {
+      const hours = Number(timeRemaining) / 3600;
+      setStatus(`Please wait ${hours.toFixed(1)} hours before next GM`);
       return;
     }
 
@@ -182,10 +218,9 @@ export const useDailyGM = () => {
     setTxHash("");
 
     try {
-      const abi = parseAbi(["function sayGM()"]);
       const data = encodeFunctionData({
-        abi,
-        functionName: "sayGM",
+        abi: ABIS.GM,
+        functionName: "sendGM",
       });
 
       setStatus("Validating...");
@@ -196,8 +231,8 @@ export const useDailyGM = () => {
           data,
         });
       } catch (estimateError: any) {
-        if (estimateError.message.includes("already")) {
-          throw new Error("Already sent GM today.");
+        if (estimateError.message.includes("CooldownActive")) {
+          throw new Error("Cooldown active. Please wait 6 hours.");
         }
         if (estimateError.message.includes("insufficient")) {
           throw new Error("Insufficient funds - click Fund Account to add ETH");
@@ -228,8 +263,8 @@ export const useDailyGM = () => {
       setStatus("Transaction submitted! Confirming...");
 
       setTimeout(async () => {
-        await fetchGMRecord(subAccount.address);
-        setStatus("GM sent successfully!");
+        await fetchGMData(subAccount.address);
+        setStatus("GM sent successfully! +10 points");
       }, 5000);
     } catch (error: any) {
       console.error("Error sending GM:", error);
@@ -242,11 +277,8 @@ export const useDailyGM = () => {
         errorMessageString.includes("Insufficient")
       ) {
         errorMessage = "Insufficient funds. Click 'Fund Account' to add ETH.";
-      } else if (
-        errorMessageString.includes("already") ||
-        errorMessageString.includes("Already")
-      ) {
-        errorMessage = "Already sent GM today.";
+      } else if (errorMessageString.includes("Cooldown")) {
+        errorMessage = "Cooldown active. Wait 6 hours.";
       } else if (errorMessageString.includes("user rejected")) {
         errorMessage = "Transaction cancelled";
       } else if (error?.message) {
@@ -256,12 +288,12 @@ export const useDailyGM = () => {
       setStatus(errorMessage);
 
       if (subAccount) {
-        await fetchGMRecord(subAccount.address);
+        await fetchGMData(subAccount.address);
       }
     } finally {
       setLoading(false);
     }
-  }, [subAccount, gmRecord, fetchGMRecord]);
+  }, [subAccount, canSend, timeRemaining, fetchGMData]);
 
   useEffect(() => {
     const checkConnection = async () => {
@@ -283,7 +315,7 @@ export const useDailyGM = () => {
               address: accounts[1] as `0x${string}`,
             };
             setSubAccount(subAcc);
-            await fetchGMRecord(accounts[1]);
+            await fetchGMData(accounts[1]);
           }
         }
       } catch (error) {
@@ -292,20 +324,23 @@ export const useDailyGM = () => {
     };
 
     checkConnection();
-  }, [fetchGMRecord]);
+  }, [fetchGMData]);
 
   return {
     connected,
     universalAddress,
     subAccount,
-    gmRecord,
+    gmStats,
+    gmExtended,
+    canSend,
+    timeRemaining,
     loading,
     status,
     txHash,
     connect,
     disconnect,
     fundAccount,
-    sayGM,
-    refetchRecord: () => subAccount && fetchGMRecord(subAccount.address),
+    sendGM,
+    refetchData: () => subAccount && fetchGMData(subAccount.address),
   };
 };
