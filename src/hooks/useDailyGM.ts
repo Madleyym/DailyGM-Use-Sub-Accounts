@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { CONTRACTS } from "@/lib/contracts.config";
-import { createPublicClient, http, parseAbi } from "viem";
+import { createPublicClient, http, parseAbi, encodeFunctionData } from "viem";
 import { base } from "viem/chains";
 import { getBaseAccountProvider } from "@/lib/base-account.config";
 
@@ -56,10 +56,10 @@ export const useDailyGM = () => {
         canGMToday,
       });
 
-      setStatus("Connected");
+      setStatus("Connected - Ready to GM!");
     } catch (error) {
-      console.error("Error:", error);
-      setStatus("Could not load stats");
+      console.error("Error fetching GM record:", error);
+      setStatus("Connected");
 
       setGmRecord({
         lastGM: BigInt(0),
@@ -96,13 +96,16 @@ export const useDailyGM = () => {
       setUniversalAddress(universal);
       setConnected(true);
 
+      let subAcc: SubAccount;
+
       if (accounts.length > 1 && accounts[1]) {
-        const subAcc = {
+        // Sub account already exists
+        subAcc = {
           address: accounts[1] as `0x${string}`,
         };
         setSubAccount(subAcc);
-        await fetchGMRecord(accounts[1]);
       } else {
+        // Create new sub account
         setStatus("Creating sub account...");
         try {
           const newSubAccount = (await provider.request({
@@ -116,17 +119,19 @@ export const useDailyGM = () => {
             ],
           })) as SubAccount;
 
+          subAcc = newSubAccount;
           setSubAccount(newSubAccount);
-          await fetchGMRecord(newSubAccount.address);
         } catch (subError: any) {
-          console.error("Sub account error:", subError);
-          const mainSubAccount = {
+          console.error("Sub account creation failed:", subError);
+          // Fallback to main account
+          subAcc = {
             address: universal as `0x${string}`,
           };
-          setSubAccount(mainSubAccount);
-          await fetchGMRecord(universal);
+          setSubAccount(subAcc);
         }
       }
+
+      await fetchGMRecord(subAcc.address);
     } catch (error: any) {
       console.error("Connection error:", error);
       setStatus(error?.message || "Connection failed");
@@ -135,6 +140,29 @@ export const useDailyGM = () => {
       setLoading(false);
     }
   }, [fetchGMRecord]);
+
+  const disconnect = useCallback(async () => {
+    try {
+      setConnected(false);
+      setUniversalAddress("");
+      setSubAccount(null);
+      setGmRecord(null);
+      setStatus("Disconnected");
+      setTxHash("");
+    } catch (error) {
+      console.error("Disconnect error:", error);
+    }
+  }, []);
+
+  const fundAccount = useCallback(() => {
+    if (!subAccount) {
+      alert("Please connect first");
+      return;
+    }
+
+    const fundUrl = `https://keys.coinbase.com/fund?address=${subAccount.address}`;
+    window.open(fundUrl, "_blank");
+  }, [subAccount]);
 
   const sayGM = useCallback(async () => {
     const provider = getBaseAccountProvider();
@@ -145,35 +173,91 @@ export const useDailyGM = () => {
     }
 
     if (!gmRecord?.canGMToday) {
-      setStatus("Already sent today");
+      setStatus("Already sent GM today. Come back tomorrow.");
       return;
     }
 
     setLoading(true);
-    setStatus("Sending...");
+    setStatus("Preparing transaction...");
+    setTxHash("");
 
     try {
-      const txHash = (await provider.request({
-        method: "eth_sendTransaction",
+      const abi = parseAbi(["function sayGM()"]);
+      const data = encodeFunctionData({
+        abi,
+        functionName: "sayGM",
+      });
+
+      setStatus("Validating...");
+      try {
+        await publicClient.estimateGas({
+          account: subAccount.address,
+          to: CONTRACTS.GM as `0x${string}`,
+          data,
+        });
+      } catch (estimateError: any) {
+        if (estimateError.message.includes("already")) {
+          throw new Error("Already sent GM today.");
+        }
+        if (estimateError.message.includes("insufficient")) {
+          throw new Error("Insufficient funds - click Fund Account to add ETH");
+        }
+        throw estimateError;
+      }
+
+      setStatus("Sending GM...");
+
+      const txHashResult = (await provider.request({
+        method: "wallet_sendCalls",
         params: [
           {
+            version: "1.0",
+            chainId: `0x${base.id.toString(16)}`,
             from: subAccount.address,
-            to: CONTRACTS.GM,
-            data: "0x9846cd9e",
+            calls: [
+              {
+                to: CONTRACTS.GM,
+                data,
+              },
+            ],
           },
         ],
       })) as string;
 
-      setTxHash(txHash);
-      setStatus("Transaction submitted");
+      setTxHash(txHashResult);
+      setStatus("Transaction submitted! Confirming...");
 
       setTimeout(async () => {
         await fetchGMRecord(subAccount.address);
-        setStatus("Success");
+        setStatus("GM sent successfully!");
       }, 5000);
     } catch (error: any) {
-      console.error("Error:", error);
-      setStatus(error?.message || "Failed");
+      console.error("Error sending GM:", error);
+
+      let errorMessage = "Failed to send GM";
+      const errorMessageString = error?.message || "";
+
+      if (
+        errorMessageString.includes("insufficient funds") ||
+        errorMessageString.includes("Insufficient")
+      ) {
+        errorMessage = "Insufficient funds. Click 'Fund Account' to add ETH.";
+      } else if (
+        errorMessageString.includes("already") ||
+        errorMessageString.includes("Already")
+      ) {
+        errorMessage = "Already sent GM today.";
+      } else if (errorMessageString.includes("user rejected")) {
+        errorMessage = "Transaction cancelled";
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+
+      setStatus(errorMessage);
+
+      if (subAccount) {
+        await fetchGMRecord(subAccount.address);
+      }
     } finally {
       setLoading(false);
     }
@@ -200,11 +284,10 @@ export const useDailyGM = () => {
             };
             setSubAccount(subAcc);
             await fetchGMRecord(accounts[1]);
-            setStatus("Ready");
           }
         }
       } catch (error) {
-        console.error("Check error:", error);
+        console.error("Check connection error:", error);
       }
     };
 
@@ -220,6 +303,8 @@ export const useDailyGM = () => {
     status,
     txHash,
     connect,
+    disconnect,
+    fundAccount,
     sayGM,
     refetchRecord: () => subAccount && fetchGMRecord(subAccount.address),
   };
