@@ -371,7 +371,7 @@ export default function DailyGMPage() {
               rel="noopener noreferrer"
               className="text-blue-400 hover:underline"
             >
-              Manage Accounts →
+              Manage Accounts
             </a>
             <span className="text-gray-600">•</span>
             <a
@@ -380,7 +380,7 @@ export default function DailyGMPage() {
               rel="noopener noreferrer"
               className="text-blue-400 hover:underline"
             >
-              Docs →
+              Docs
             </a>
           </div>
         </div>
