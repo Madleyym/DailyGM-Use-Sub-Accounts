@@ -369,16 +369,16 @@ export default function DailyGMPage() {
               href="https://account.base.app"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-400 hover:underline"
+              className="text-white-400 hover:underline"
             >
               Manage Accounts
             </a>
-            <span className="text-gray-600">•</span>
+            <span className="text-white-400">|</span>
             <a
               href="https://docs.base.org"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-400 hover:underline"
+              className="text-white-400 hover:underline"
             >
               Docs
             </a>
