@@ -1,5 +1,22 @@
 [
   {
+    "inputs": [
+      { "internalType": "string", "name": "puzzlePin", "type": "string" }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "timeRemaining", "type": "uint256" }
+    ],
+    "name": "CooldownActive",
+    "type": "error"
+  },
+  { "inputs": [], "name": "IncorrectPIN", "type": "error" },
+  { "inputs": [], "name": "PuzzleAlreadySolved", "type": "error" },
+  { "inputs": [], "name": "Unauthorized", "type": "error" },
+  {
     "anonymous": false,
     "inputs": [
       {
@@ -11,19 +28,25 @@
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "streak",
+        "name": "gmCount",
         "type": "uint256"
       },
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "timestamp",
+        "name": "points",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "streak",
         "type": "uint256"
       },
       {
         "indexed": false,
         "internalType": "bool",
-        "name": "isNewRecord",
+        "name": "newRecord",
         "type": "bool"
       }
     ],
@@ -36,40 +59,131 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "subAccount",
+        "name": "user",
         "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "rank",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "score",
+        "type": "uint256"
       }
     ],
-    "name": "SubAccountRegistered",
+    "name": "LeaderboardUpdated",
     "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "Locked",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "solver",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "bonusPoints",
+        "type": "uint256"
+      }
+    ],
+    "name": "PuzzleSolved",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "SoulboundMinted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "previousStreak",
+        "type": "uint256"
+      }
+    ],
+    "name": "StreakBroken",
+    "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "COOLDOWN_PERIOD",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "POINTS_PER_GM",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "PUZZLE_BONUS_POINTS",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "tester", "type": "address" }
+    ],
+    "name": "addWhitelist",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
     "inputs": [
       { "internalType": "address", "name": "account", "type": "address" }
     ],
-    "name": "checkIsSubAccount",
-    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      { "internalType": "uint256", "name": "", "type": "uint256" },
-      { "internalType": "uint256", "name": "", "type": "uint256" }
-    ],
-    "name": "dailyGMers",
-    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      { "internalType": "uint256", "name": "dayTimestamp", "type": "uint256" }
-    ],
-    "name": "getDailyGMers",
-    "outputs": [
-      { "internalType": "address[]", "name": "", "type": "address[]" }
-    ],
+    "name": "balanceOf",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
     "stateMutability": "view",
     "type": "function"
   },
@@ -77,13 +191,10 @@
     "inputs": [
       { "internalType": "address", "name": "user", "type": "address" }
     ],
-    "name": "getGMRecord",
+    "name": "canSendGM",
     "outputs": [
-      { "internalType": "uint256", "name": "lastGM", "type": "uint256" },
-      { "internalType": "uint256", "name": "currentStreak", "type": "uint256" },
-      { "internalType": "uint256", "name": "longestStreak", "type": "uint256" },
-      { "internalType": "uint256", "name": "totalGMs", "type": "uint256" },
-      { "internalType": "bool", "name": "canGMToday", "type": "bool" }
+      { "internalType": "bool", "name": "canSend", "type": "bool" },
+      { "internalType": "uint256", "name": "timeRemaining", "type": "uint256" }
     ],
     "stateMutability": "view",
     "type": "function"
@@ -92,63 +203,191 @@
     "inputs": [],
     "name": "getGlobalStats",
     "outputs": [
-      { "internalType": "uint256", "name": "totalSubs", "type": "uint256" },
-      { "internalType": "uint256", "name": "totalGMs", "type": "uint256" }
+      { "internalType": "uint256", "name": "totalGMsSent", "type": "uint256" },
+      { "internalType": "uint256", "name": "totalUsers", "type": "uint256" },
+      {
+        "internalType": "uint256",
+        "name": "averageGMsPerUser",
+        "type": "uint256"
+      }
     ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
-    "name": "getTodayGMCount",
-    "outputs": [
-      { "internalType": "uint256", "name": "count", "type": "uint256" }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [{ "internalType": "address", "name": "", "type": "address" }],
-    "name": "gmRecords",
+    "name": "getLeaderboard",
     "outputs": [
       {
+        "internalType": "address[10]",
+        "name": "players",
+        "type": "address[10]"
+      },
+      {
+        "internalType": "uint256[10]",
+        "name": "scores",
+        "type": "uint256[10]"
+      },
+      {
+        "internalType": "uint256[10]",
+        "name": "gmCounts",
+        "type": "uint256[10]"
+      },
+      {
+        "internalType": "uint256[10]",
+        "name": "streaks",
+        "type": "uint256[10]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "user", "type": "address" }
+    ],
+    "name": "getUserExtended",
+    "outputs": [
+      { "internalType": "uint256", "name": "longestStreak", "type": "uint256" },
+      { "internalType": "bool", "name": "puzzleSolved", "type": "bool" },
+      { "internalType": "bool", "name": "whitelisted", "type": "bool" },
+      { "internalType": "uint256", "name": "rank", "type": "uint256" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "user", "type": "address" }
+    ],
+    "name": "getUserStats",
+    "outputs": [
+      { "internalType": "uint256", "name": "gmCount", "type": "uint256" },
+      { "internalType": "uint256", "name": "points", "type": "uint256" },
+      {
         "internalType": "uint256",
-        "name": "lastGMTimestamp",
+        "name": "soulboundTokens",
         "type": "uint256"
       },
-      { "internalType": "uint256", "name": "currentStreak", "type": "uint256" },
-      { "internalType": "uint256", "name": "longestStreak", "type": "uint256" },
-      { "internalType": "uint256", "name": "totalGMs", "type": "uint256" }
+      { "internalType": "uint256", "name": "currentStreak", "type": "uint256" }
     ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [{ "internalType": "address", "name": "", "type": "address" }],
-    "name": "isSubAccount",
+    "name": "hasInitialized",
     "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
     "stateMutability": "view",
     "type": "function"
   },
   {
+    "inputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "name": "hasSolvedPuzzle",
+    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "name": "isWhitelisted",
+    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "name": "locked",
+    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
     "inputs": [],
-    "name": "sayGM",
+    "name": "owner",
+    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "name": "profiles",
+    "outputs": [
+      { "internalType": "uint256", "name": "gmCount", "type": "uint256" },
+      { "internalType": "uint256", "name": "points", "type": "uint256" },
+      { "internalType": "uint256", "name": "lastGMTime", "type": "uint256" },
+      { "internalType": "uint256", "name": "longestStreak", "type": "uint256" },
+      { "internalType": "uint256", "name": "currentStreak", "type": "uint256" },
+      { "internalType": "uint256", "name": "lastStreakDay", "type": "uint256" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "tester", "type": "address" }
+    ],
+    "name": "removeWhitelist",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
   },
   {
     "inputs": [],
-    "name": "totalGMsSent",
+    "name": "secretPinHash",
+    "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "sendGM",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "string", "name": "pin", "type": "string" }],
+    "name": "solvePuzzle",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "name": "soulboundBalance",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "name": "topPlayers",
+    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "totalGMs",
     "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
-    "name": "totalSubAccounts",
+    "name": "totalParticipants",
     "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "string", "name": "newPin", "type": "string" }
+    ],
+    "name": "updatePuzzle",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   }
 ]
