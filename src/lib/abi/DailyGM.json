@@ -1,0 +1,75 @@
+[
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "streak",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "timestamp",
+        "type": "uint256"
+      }
+    ],
+    "name": "GMSent",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "", "type": "uint256" },
+      { "internalType": "uint256", "name": "", "type": "uint256" }
+    ],
+    "name": "dailyGMers",
+    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "user", "type": "address" }
+    ],
+    "name": "getGMRecord",
+    "outputs": [
+      { "internalType": "uint256", "name": "lastGM", "type": "uint256" },
+      { "internalType": "uint256", "name": "currentStreak", "type": "uint256" },
+      { "internalType": "uint256", "name": "longestStreak", "type": "uint256" },
+      { "internalType": "uint256", "name": "totalGMs", "type": "uint256" },
+      { "internalType": "bool", "name": "canGMToday", "type": "bool" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "name": "gmRecords",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "lastGMTimestamp",
+        "type": "uint256"
+      },
+      { "internalType": "uint256", "name": "currentStreak", "type": "uint256" },
+      { "internalType": "uint256", "name": "longestStreak", "type": "uint256" },
+      { "internalType": "uint256", "name": "totalGMs", "type": "uint256" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "sayGM",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]
