@@ -12,9 +12,15 @@ export const getBaseAccountSDK = () => {
   if (typeof window === "undefined") return null;
 
   if (!sdkInstance) {
+    // Get absolute URL for logo
+    const logoUrl =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/logo.svg`
+        : "/logo.svg";
+
     sdkInstance = createBaseAccountSDK({
       appName: "Daily GM - Base Quest",
-      appLogoUrl: "/logo.svg",
+      appLogoUrl: logoUrl, 
       appChainIds: [base.id],
       subAccounts: {
         creation: "on-connect",
